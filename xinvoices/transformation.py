@@ -8,7 +8,7 @@ from weasyprint import HTML
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-def determine_stylesheet(xml_path, xsl_dir):
+def _determine_stylesheet(xml_path, xsl_dir):
     """
     Determine the appropriate XSLT stylesheet for the given XML file based on its root element.
     """
@@ -26,7 +26,7 @@ def determine_stylesheet(xml_path, xsl_dir):
     raise ValueError(f"Could not determine the root element of '{xml_path}'")
 
 
-def compile_and_transform(processor, stylesheet_path, source_file, output_file, params):
+def _compile_and_transform(processor, stylesheet_path, source_file, output_file, params):
     """
     Compiles an XSLT stylesheet and transforms an XML file.
 
@@ -79,19 +79,19 @@ def transform_xml(xml_dir, html_dir, xsl_dir, params=None):
                 xml_path = os.path.join(xml_dir, filename)
                 logging.info(f"Processing file: {xml_path}")
 
-                stylesheet_filename = determine_stylesheet(xml_path, xsl_dir)
+                stylesheet_filename = _determine_stylesheet(xml_path, xsl_dir)
 
                 # Intermediate XML filename
                 intermediate_path = os.path.join(intermediate_dir, f"{filename[:-4]}-xr.xml")
 
                 # Step 1: Transform to intermediate XR format
-                compile_and_transform(xslt_processor, stylesheet_filename, xml_path, intermediate_path, params)
+                _compile_and_transform(xslt_processor, stylesheet_filename, xml_path, intermediate_path, params)
 
                 # Step 2: Transform to HTML
                 second_xsl = os.path.join(xsl_dir, "xrechnung-html.xsl")
                 html_filename = f"{filename[:-4]}.html"
                 html_path = os.path.join(html_dir, html_filename)
-                compile_and_transform(xslt_processor, second_xsl, intermediate_path, html_path, params)
+                _compile_and_transform(xslt_processor, second_xsl, intermediate_path, html_path, params)
 
 
 def convert_html_to_pdf(html_dir, pdf_dir):

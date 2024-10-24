@@ -27,68 +27,19 @@
         <style>
           <xsl:value-of select="unparsed-text('xrechnung-viewer.css')" />
         </style>
-        <script>
-          <xsl:value-of select="unparsed-text('FileSaver-v2.0.5.js')" />
-        </script>
-        <!-- according to
-        https://stackoverflow.com/questions/436411/where-should-i-put-script-tags-in-html-markup -->
-        <script>
-          <xsl:value-of select="unparsed-text('xrechnung-viewer.js')" />
-        </script>
+        <!-- Adjust font size -->
+        <style>
+          body {
+          font-size: 12px; /* Adjust the font size as needed */
+          }
+        </style>
       </head>
       <body>
         <div role="main">
-          <form>
-            <div class="menue" role="navigation">
-              <div role="tablist" class="innen">
-                <div role="none">
-                  <button role="tab" aria-controls="uebersicht" tabindex="0" aria-selected="true"
-                    type="button"
-                    class="tab btnAktiv" id="menueUebersicht" onclick="show(this);">
-                    <span>
-                      <xsl:value-of select="xrf:_('uebersicht')" />
-                    </span>
-                  </button>
-                </div>
-                <div role="none">
-                  <button role="tab" aria-controls="details" tabindex="0" aria-selected="false"
-                    type="button"
-                    class="tab" id="menueDetails" onclick="show(this);">
-                    <span>
-                      <xsl:value-of select="xrf:_('details')" />
-                    </span>
-                  </button>
-                </div>
-                <div role="none">
-                  <button role="tab" aria-controls="zusaetze" tabindex="0" aria-selected="false"
-                    type="button"
-                    class="tab" id="menueZusaetze" onclick="show(this)">
-                    <span>
-                      <xsl:value-of select="xrf:_('zusaetze')" />
-                    </span>
-                  </button>
-                </div>
-                <div role="none">
-                  <button role="tab" aria-controls="anlagen" tabindex="0" aria-selected="false"
-                    type="button"
-                    class="tab" id="menueAnlagen" onclick="show(this)">
-                    <span>
-                      <xsl:value-of select="xrf:_('anlagen')" />
-                    </span>
-                  </button>
-                </div>
-                <div role="none">
-                  <button role="tab" aria-controls="laufzettel" tabindex="0" aria-selected="false"
-                    type="button"
-                    class="tab" id="menueLaufzettel" onclick="show(this)">
-                    <span>
-                      <xsl:value-of select="xrf:_('laufzettel')" />
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </form>
+          <!-- Display disclaimer text only once at the beginning -->
+          <div class="haftungausschluss">
+            <xsl:value-of select="xrf:_('_disclaimer')" />
+          </div>
           <div class="inhalt">
             <div class="innen">
               <xsl:call-template name="uebersicht" />
@@ -99,23 +50,16 @@
             </div>
           </div>
         </div>
-
       </body>
     </html>
   </xsl:template>
 
-
   <xsl:template name="uebersicht">
-    <div id="uebersicht" class="divShow" role="tabpanel" aria-labelledby="menueUebersicht"
-      tabindex="0">
-      <noscript>
-        <div class="noscript">
-          <xsl:value-of select="xrf:_('no-script')" />
-        </div>
-      </noscript>
-      <div class="haftungausschluss">
-        <xsl:value-of select="xrf:_('_disclaimer')" />
-      </div>
+    <div id="uebersicht" role="tabpanel" tabindex="0">
+
+      <h2>
+        <xsl:value-of select="xrf:_('uebersicht')" />
+      </h2>
       <div class="boxtabelle boxtabelleZweispaltig">
         <div class="boxzeile">
 
@@ -1152,11 +1096,12 @@
 
 
   <xsl:template name="details">
-    <div id="details" class="divHide" role="tabpanel" aria-labelledby="menueDetails" tabindex="0">
-      <div class="haftungausschluss">
-        <xsl:value-of select="xrf:_('_disclaimer')" />
-      </div>
-      <xsl:apply-templates select="./xr:INVOICE_LINE" /> <!-- many -->
+    <div id="details" role="tabpanel" tabindex="0">
+      <!-- Add section header -->
+      <h2>
+        <xsl:value-of select="xrf:_('details')" />
+      </h2>
+      <xsl:apply-templates select="./xr:INVOICE_LINE" />
     </div>
   </xsl:template>
 
@@ -1187,8 +1132,7 @@
             <div class="boxzeile" role="listitem">
               <div class="boxdaten legende">
                 <xsl:value-of select="xrf:_('xr:Invoice_line_object_identifier/@scheme_identifier')" />
-    :
-              </div>
+    : </div>
               <div data-title="BT-128-scheme-id" class="BT-128-scheme-id boxdaten wert">
                 <xsl:value-of select="xr:Invoice_line_object_identifier/@scheme_identifier" />
               </div>
@@ -1487,8 +1431,7 @@
                   <div class="boxzeile" role="listitem">
                     <div class="boxdaten legende">
                       <xsl:value-of select="xrf:_('xr:Item_standard_identifier/@scheme_identifier')" />
-    :
-                    </div>
+    : </div>
                     <div data-title="BT-157-scheme-id" class="BT-157-scheme-id boxdaten wert">
                       <xsl:value-of
                         select="xr:ITEM_INFORMATION/xr:Item_standard_identifier/@scheme_identifier" />
@@ -1532,8 +1475,7 @@
                       <div class="boxdaten legende">
                         <xsl:value-of
                           select="xrf:_('xr:Item_classification_identifier/@scheme_version_identifier')" />
-    :
-                      </div>
+    : </div>
                       <div data-title="BT-158-scheme-version-id"
                         class="BT-158-scheme-version-id boxdaten wert">
                         <xsl:value-of
@@ -1574,10 +1516,11 @@
 
 
   <xsl:template name="zusaetze">
-    <div id="zusaetze" class="divHide" role="tabpanel" aria-labelledby="menueZusaetze" tabindex="0">
-      <div class="haftungausschluss">
-        <xsl:value-of select="xrf:_('_disclaimer')" />
-      </div>
+    <div id="zusaetze" role="tabpanel" tabindex="0">
+      <h2>
+        <xsl:value-of select="xrf:_('zusaetze')" />
+      </h2>
+
       <div class="boxtabelle boxtabelleZweispaltig">
         <div class="boxzeile">
           <xsl:apply-templates select="./xr:SELLER" mode="zusaetze" />
@@ -2031,10 +1974,11 @@
 
 
   <xsl:template name="anlagen">
-    <div id="anlagen" class="divHide" role="tabpanel" aria-labelledby="menueAnlagen" tabindex="0">
-      <div class="haftungausschluss">
-        <xsl:value-of select="xrf:_('_disclaimer')" />
-      </div>
+    <div id="anlagen" role="tabpanel" tabindex="0">
+      <h2>
+        <xsl:value-of select="xrf:_('anlagen')" />
+      </h2>
+
       <div class="boxtabelle boxabstandtop">
         <div class="boxzeile">
           <div id="anlagenListe" class="box">
@@ -2123,8 +2067,11 @@
 
 
   <xsl:template name="laufzettel">
-    <div id="laufzettel" class="divHide" role="tabpanel" aria-labelledby="menueLaufzettel"
-      tabindex="0">
+    <div id="laufzettel" role="tabpanel" tabindex="0">
+      <h2>
+        <xsl:value-of select="xrf:_('laufzettel')" />
+      </h2>
+
       <div class="boxtabelle boxabstandtop">
         <div class="boxzeile">
           <div id="laufzettelHistorie" class="box">

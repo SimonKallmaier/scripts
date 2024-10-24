@@ -40,7 +40,11 @@ h4
   font-size: inherit;
   margin-bottom: 0.5rem;
 }
-
+h2 {
+  font-size: 16px; /* Adjust as needed */
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
 
 /* Grundaufbau *************************************************/
 
@@ -547,7 +551,9 @@ button
 /* 1023px und kleiner ************************************************/
 
 @media screen and (max-width : 1023px) {
-
+  h2 {
+    page-break-before: always; /* Add page breaks before headings in PDF */
+  }
   .box
   {
     display: block;
