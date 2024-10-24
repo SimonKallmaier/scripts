@@ -1,2 +1,7 @@
 
 .venv
+
+xinvoices/output/*
+# downloaded from https://github.com/itplr-kosit
+xinvoices/test_instances/**/
+

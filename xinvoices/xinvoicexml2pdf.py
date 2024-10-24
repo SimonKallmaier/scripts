@@ -1,5 +1,12 @@
+"""
+This file is the legacy implementation that just investigated the creation of PDF files based on XML.
+
+No future usage is intented for this file.
+"""
+
 import datetime
 import os
+import warnings
 import xml.etree.ElementTree as ET
 
 from reportlab.lib import colors
@@ -7,6 +14,13 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+warnings.warn(
+    "This script is deprecated and will be removed in future versions. "
+    "Please use the new implementation for creating PDF files based on XML.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Define constants
 PAGE_WIDTH, PAGE_HEIGHT = A4
@@ -238,7 +252,7 @@ def create_pdf():
     """
     # Parse dynamic data from ZUGFeRD XML
     invoice_data = parse_zugferd_invoice(XML_INPUT_FILE)
-
+    print(invoice_data)
     # Create PDF document
     doc = SimpleDocTemplate(
         PDF_OUTPUT_FILE, pagesize=A4, canvasmaker=MyCanvas, title="ZUGFeRD Invoice", author=company_info["name"]
@@ -468,7 +482,8 @@ def add_company_footer(story, style):
     """
     footer_text = (
         f"{company_info['name']} • Sitz der Gesellschaft • USt-IdNr • {company_info['bank_name']}<br/>"
-        f"{company_info['director']} • {company_info['company_registration']} • {company_info['vat_id']} • {company_info['iban']}"
+        f"{company_info['director']} • {company_info['company_registration']} • "
+        f"{company_info['vat_id']} • {company_info['iban']}"
     )
     p_footer = Paragraph(footer_text, style)
     story.append(p_footer)
