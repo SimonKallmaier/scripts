@@ -4,9 +4,49 @@ import string
 import zipfile
 
 
-def generate_random_string(length=8):
-    """Generate a random string of uppercase letters and digits."""
-    return "".join(random.choices(string.ascii_uppercase + string.digits, k=length))
+def generate_random_string(length):
+    """Generate a random string of fixed length."""
+    return "".join(random.choices(string.ascii_uppercase, k=length))
+
+
+def generate_random_name():
+    """Generate a random full name."""
+    first_names = ["Max", "Erika", "Hans", "Anna", "Peter", "Laura", "Karl", "Sophie"]
+    last_names = ["Mustermann", "Musterfrau", "Schmidt", "Schneider", "Fischer", "Weber"]
+    return f"{random.choice(first_names)} {random.choice(last_names)}"
+
+
+def generate_random_email(name):
+    """Generate a random email address based on a name."""
+    domains = ["example.com", "mail.com", "test.org"]
+    email_name = name.lower().replace(" ", ".")
+    return f"{email_name}@{random.choice(domains)}"
+
+
+def generate_random_date():
+    """Generate a random date."""
+    years = ["2022", "2023", "2024"]
+    months = [
+        "Januar",
+        "Februar",
+        "März",
+        "April",
+        "Mai",
+        "Juni",
+        "Juli",
+        "August",
+        "September",
+        "Oktober",
+        "November",
+        "Dezember",
+    ]
+    days = [str(day) for day in range(1, 29)]  # Keep it simple with days 1-28
+    return f"{random.choice(days)}. {random.choice(months)} {random.choice(years)}"
+
+
+def generate_random_phone():
+    """Generate a random phone number."""
+    return f"+49 {random.randint(1000, 9999)} {random.randint(100000, 999999)}"
 
 
 def create_simulated_zip_files(base_zip_dir, month, num_zip_files=3, documents_per_zip=10, pages_per_document=5):
@@ -37,8 +77,37 @@ def create_simulated_zip_files(base_zip_dir, month, num_zip_files=3, documents_p
                 # Generate base filename
                 base_filename = generate_random_string(7)  # e.g., 'ABCDEFG'
 
-                # Create text file content
-                ocr_text = f"This is the OCR text for document {DocumentID}, page 1."
+                # Generate random personal data
+                name = generate_random_name()
+                email = generate_random_email(name)
+                date = generate_random_date()
+                phone = generate_random_phone()
+
+                # Include common phrases
+                common_phrase_intro = random.choice(
+                    [
+                        "Sehr geehrte Damen und Herren",
+                        "Liebe Kolleginnen und Kollegen",
+                        "Guten Tag",
+                    ]
+                )
+                common_phrase_outro = random.choice(
+                    [
+                        "Mit freundlichen Grüßen",
+                        "Beste Grüße",
+                        "Hochachtungsvoll",
+                    ]
+                )
+
+                # Create text file content with personal data and common phrases
+                ocr_text = f"""{common_phrase_intro},
+
+Mein Name ist {name} und ich wohne in Berlin. Sie können mich unter {email} oder {phone} erreichen.
+Heute ist der {date}.
+
+{common_phrase_outro},
+{name}
+"""
 
                 index_content = (
                     "zipname",

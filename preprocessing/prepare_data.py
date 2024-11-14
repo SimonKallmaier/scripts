@@ -1,19 +1,26 @@
+import logging
 import os
+import re
 import zipfile
 from glob import glob
+from typing import Dict, List, Set
 
 import pandas as pd
 import spacy
 from spacy.matcher import Matcher
 
-# Load the German spaCy model
-nlp = spacy.load("de_core_news_sm")
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
 
-# Initialize the Matcher
+nlp = spacy.load("de_core_news_md")
+
+# Initialize the Matcher and EntityRuler
 matcher = Matcher(nlp.vocab)
 common_phrases = [
     "Sehr geehrte Damen und Herren",
     "Mit freundlichen Grüßen",
+    "Beste Grüße",
+    "Liebe Kolleginnen und Kollegen",
     # Add more phrases as needed
 ]
 
@@ -21,80 +28,98 @@ common_phrases = [
 patterns = [[{"LOWER": token.lower_} for token in nlp(text)] for text in common_phrases]
 matcher.add("COMMON_PHRASES", patterns)
 
+# Compile regex patterns for emails and phone numbers
+email_pattern = re.compile(r"\b[\w.-]+?@[\w.-]+\.\w+?\b")
+phone_pattern = re.compile(r"\b(?:\+?\d{1,3}[-.\s]?|\(\d{1,4}\)\s?)?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b")
 
-def unzip_files(zip_dir, output_dir, month, force=False):
+
+def unzip_files(zip_dir: str, output_dir: str, month: str, force: bool = False) -> None:
+    """Unzip all files in the given directory."""
     zip_files = glob(os.path.join(zip_dir, "*.zip"))
     for zip_path in zip_files:
         zip_name = os.path.basename(zip_path)
         zip_name_no_ext = os.path.splitext(zip_name)[0]
         extract_dir = os.path.join(output_dir, month, zip_name_no_ext)
         if not force and os.path.exists(extract_dir):
-            print(f"Skipping {zip_name} as it already exists in {extract_dir}")
+            logging.info(f"Skipping {zip_name} as it already exists in {extract_dir}")
             continue
         os.makedirs(extract_dir, exist_ok=True)
-        print(f"Extracting {zip_name} to {extract_dir}")
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(extract_dir)
-    print("All zip files processed.")
+        logging.info(f"Extracting {zip_name} to {extract_dir}")
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(extract_dir)
+        except zipfile.BadZipFile as e:
+            logging.error(f"Error extracting {zip_name}: {e}")
+    logging.info("All zip files processed.")
 
 
-def find_index_files(root_dir):
+def find_index_files(root_dir: str) -> List[str]:
+    """Find all index files in the directory tree."""
     index_files = []
-    for dirpath, dirnames, filenames in os.walk(root_dir):
+    for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
             if filename.endswith("_index.txt"):
                 index_files.append(os.path.join(dirpath, filename))
     return index_files
 
 
-def parse_index_file(index_file_path):
-    with open(index_file_path, "r", encoding="utf-8") as f:
-        content = f.read().strip()
-    # Split by commas, remove quotes
-    items = [item.strip().strip('"') for item in content.split(",")]
+def parse_index_file(index_file_path: str) -> Dict[str, str]:
+    """Parse the index file into a dictionary."""
+    try:
+        with open(index_file_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        items = [item.strip().strip('"') for item in content.split(",")]
 
-    data = {"BATCHKLASSE": items[0], "BATCHCONTENT": items[1]}
+        data = {"BATCHKLASSE": items[0], "BATCHCONTENT": items[1]}
 
-    # Start from the third element
-    for i in range(2, len(items), 2):
-        key = items[i]
-        value = items[i + 1] if i + 1 < len(items) else ""
-        data[key] = value
+        for i in range(2, len(items), 2):
+            key = items[i]
+            value = items[i + 1] if i + 1 < len(items) else ""
+            data[key] = value
 
-    return data
+        return data
+    except Exception as e:
+        logging.error(f"Error parsing index file {index_file_path}: {e}")
+        return {}
 
 
-def is_expected_format(data):
-    expected_columns = [
+def is_expected_format(data: Dict[str, str]) -> bool:
+    """Check if the data has the expected format."""
+    expected_columns = {
         "BATCHKLASSE",
         "BATCHCONTENT",
         "{BatchID}",
         "{DocumentID}",
         "docType",
         "{pageCount}",
-    ]
-    for column in expected_columns:
-        if column not in data:
-            print(f"Missing column: {column}")
-            return False
+    }
+    missing_columns = expected_columns - data.keys()
+    if missing_columns:
+        logging.warning(f"Missing columns: {missing_columns}")
+        return False
     return True
 
 
-def get_text_file_path(index_file_path):
+def get_text_file_path(index_file_path: str) -> str:
+    """Get the corresponding text file path for the index file."""
     base_dir = os.path.dirname(index_file_path)
     index_filename = os.path.basename(index_file_path)
     base_filename = index_filename.replace("_index.txt", ".txt")
-    text_file_path = os.path.join(base_dir, base_filename)
-    return text_file_path
+    return os.path.join(base_dir, base_filename)
 
 
-def read_text_file(text_file_path):
-    with open(text_file_path, "r", encoding="utf-8") as f:
-        text = f.read()
-    return text
+def read_text_file(text_file_path: str) -> str:
+    """Read the content of the text file."""
+    try:
+        with open(text_file_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logging.error(f"Error reading text file {text_file_path}: {e}")
+        return ""
 
 
-def is_blacklisted(text, blacklist_emails):
+def is_blacklisted(text: str, blacklist_emails: Set[str]) -> bool:
+    """Check if the text contains any blacklisted emails."""
     text_lower = text.lower()
     for email in blacklist_emails:
         if email.lower() in text_lower:
@@ -102,34 +127,42 @@ def is_blacklisted(text, blacklist_emails):
     return False
 
 
-def remove_common_phrases(text):
+def remove_common_phrases(text: str) -> str:
+    """Remove common phrases from the text."""
     doc = nlp(text)
     matches = matcher(doc)
-    spans = []
+    spans = [doc[start:end] for _, start, end in matches]
+    spans = spacy.util.filter_spans(spans)
 
-    for match_id, start, end in matches:
-        span = doc[start:end]
-        spans.append(span)
-
-    # Sort spans in reverse order to replace from the end to avoid messing up indices
-    spans = sorted(spans, key=lambda span: span.start_char, reverse=True)
-
+    # Replace matched phrases with [REDACTED_PHRASE]
     for span in spans:
-        text = text[: span.start_char] + "[REDACTED_PHRASE]" + text[span.end_char :]  # noqa: E203
+        # Use regex to ensure exact phrase replacement, considering word boundaries
+        pattern = re.compile(re.escape(span.text))
+        text = pattern.sub("[REDACTED_PHRASE]", text)
 
     return text
 
 
-def anonymize_text(text):
+def anonymize_text(text: str) -> str:
+    """Anonymize personal data in the text."""
+    # Redact emails and phone numbers using regex
+    text = email_pattern.sub("[REDACTED_EMAIL]", text)
+    text = phone_pattern.sub("[REDACTED_PHONE]", text)
+
     doc = nlp(text)
-    anonymized_text = "".join(
-        "[REDACTED]" if token.ent_type_ in ["PERSON", "GPE", "LOC", "ORG"] else token.text + token.whitespace_
-        for token in doc
-    )
-    return anonymized_text
+    anonymized_tokens = []
+    for token in doc:
+        if token.ent_type_ in ["PER", "ORG", "LOC", "MISC"]:
+            anonymized_tokens.append("[REDACTED]")
+        else:
+            anonymized_tokens.append(token.text_with_ws)
+    return "".join(anonymized_tokens)
 
 
-def process_index_files(index_files_chunk, chunk_number, output_dir, blacklist_emails):
+def process_index_files(
+    index_files_chunk: List[str], chunk_number: int, output_dir: str, blacklist_emails: Set[str]
+) -> None:
+    """Process a chunk of index files."""
     data_list = []
     for index_file in index_files_chunk:
         try:
@@ -152,23 +185,23 @@ def process_index_files(index_files_chunk, chunk_number, output_dir, blacklist_e
                 data["is_blacklist"] = False
             data_list.append(data)
         except Exception as e:
-            print(f"Error processing {index_file}: {e}")
+            logging.error(f"Error processing {index_file}: {e}")
     df = pd.DataFrame(data_list)
     # Save dataframe to pickle in new subfolder
     final_output_dir = os.path.join(output_dir, "final_dataframes")
     os.makedirs(final_output_dir, exist_ok=True)
     pickle_file = os.path.join(final_output_dir, f"dataframe_chunk_{chunk_number}.pkl")
     df.to_pickle(pickle_file)
-    print(f"Chunk {chunk_number} processed and saved to {pickle_file}")
+    logging.info(f"Chunk {chunk_number} processed and saved to {pickle_file}")
 
 
-def chunks(lst, n):
+def chunks(lst: List[str], n: int) -> List[List[str]]:
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i : i + n]  # noqa: E203
 
 
-def main():
+def main() -> None:
     zip_dir = "simulated_zip_files"  # Directory where zip files are stored
     output_dir = "processed_data"  # Output directory
     month = "2023-10"
@@ -176,13 +209,11 @@ def main():
     os.makedirs(unzip_dir, exist_ok=True)
 
     # Define blacklist emails
-    blacklist_emails = set(
-        [
-            "blacklisted@example.com",
-            "spamuser@example.org",
-            # Add more emails as needed
-        ]
-    )
+    blacklist_emails = {
+        "blacklisted@example.com",
+        "spamuser@example.org",
+        # Add more emails as needed
+    }
 
     # Step 1: Unzip files
     unzip_files(zip_dir, unzip_dir, month)
@@ -190,18 +221,12 @@ def main():
     # Step 2: Find index files
     root_dir = os.path.join(unzip_dir, month)
     index_files = find_index_files(root_dir)
-    print(f"Found {len(index_files)} index files.")
+    logging.info(f"Found {len(index_files)} index files.")
 
     # Step 3: Process index files in chunks
     chunk_size = 100  # Adjust based on available memory
     for chunk_number, index_files_chunk in enumerate(chunks(index_files, chunk_size)):
         process_index_files(index_files_chunk, chunk_number, output_dir, blacklist_emails)
-
-    # Optional: Delete old dataframes if needed
-    # intermediate_pickle_files = glob(os.path.join(output_dir, "dataframe_chunk_*.pkl"))
-    # for file_path in intermediate_pickle_files:
-    #     os.remove(file_path)
-    # print('Old intermediate dataframes deleted.')
 
 
 if __name__ == "__main__":
