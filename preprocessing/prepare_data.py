@@ -1,12 +1,15 @@
 import logging
 import os
 import re
+import time
 import zipfile
 from glob import glob
-from typing import Dict, List, Set
+from multiprocessing import Pool, cpu_count
+from typing import Dict, Generator, List, Set
 
 import pandas as pd
 import spacy
+from annonymization import common_phrases, regex_substitutions
 from spacy.matcher import Matcher
 
 # Configure logging
@@ -16,21 +19,10 @@ nlp = spacy.load("de_core_news_md")
 
 # Initialize the Matcher and EntityRuler
 matcher = Matcher(nlp.vocab)
-common_phrases = [
-    "Sehr geehrte Damen und Herren",
-    "Mit freundlichen Grüßen",
-    "Beste Grüße",
-    "Liebe Kolleginnen und Kollegen",
-    # Add more phrases as needed
-]
 
 # Create patterns for the Matcher
 patterns = [[{"LOWER": token.lower_} for token in nlp(text)] for text in common_phrases]
 matcher.add("COMMON_PHRASES", patterns)
-
-# Compile regex patterns for emails and phone numbers
-email_pattern = re.compile(r"\b[\w.-]+?@[\w.-]+\.\w+?\b")
-phone_pattern = re.compile(r"\b(?:\+?\d{1,3}[-.\s]?|\(\d{1,4}\)\s?)?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b")
 
 
 def unzip_files(zip_dir: str, output_dir: str, month: str, force: bool = False) -> None:
@@ -145,14 +137,13 @@ def remove_common_phrases(text: str) -> str:
 
 def anonymize_text(text: str) -> str:
     """Anonymize personal data in the text."""
-    # Redact emails and phone numbers using regex
-    text = email_pattern.sub("[REDACTED_EMAIL]", text)
-    text = phone_pattern.sub("[REDACTED_PHONE]", text)
+    for pattern_name, pattern in regex_substitutions:
+        text = pattern.sub(f"[REDACTED_{pattern_name}]", text)
 
     doc = nlp(text)
     anonymized_tokens = []
     for token in doc:
-        if token.ent_type_ in ["PER", "ORG", "LOC", "MISC"]:
+        if token.ent_type_ in ["PER", "ORG", "LOC"]:
             anonymized_tokens.append("[REDACTED]")
         else:
             anonymized_tokens.append(token.text_with_ws)
@@ -164,28 +155,33 @@ def process_index_files(
 ) -> None:
     """Process a chunk of index files."""
     data_list = []
+    count_blacklist = 0
     for index_file in index_files_chunk:
         try:
             data = parse_index_file(index_file)
-            if not is_expected_format(data):
+            if not is_expected_format(data):  # log message in function
                 continue
+
             text_file = get_text_file_path(index_file)
             if os.path.exists(text_file):
                 text = read_text_file(text_file)
-                # Step 1: Remove common phrases
-                text = remove_common_phrases(text)
-                # Step 2: Check for blacklisted emails
+
+                # Blacklist is a set of email addresses from employees who are not allowed to be mentioned in the text
                 is_blacklist = is_blacklisted(text, blacklist_emails)
-                data["is_blacklist"] = is_blacklist
-                # Step 3: Anonymize text
+                if is_blacklist:
+                    logging.info(f"Blacklisted email found in {index_file}")
+                    count_blacklist += 1
+                    continue
+
+                text = remove_common_phrases(text)
                 anonymized_text = anonymize_text(text)
                 data["text"] = anonymized_text
             else:
                 data["text"] = ""
-                data["is_blacklist"] = False
             data_list.append(data)
         except Exception as e:
             logging.error(f"Error processing {index_file}: {e}")
+
     df = pd.DataFrame(data_list)
     # Save dataframe to pickle in new subfolder
     final_output_dir = os.path.join(output_dir, "final_dataframes")
@@ -194,14 +190,19 @@ def process_index_files(
     df.to_pickle(pickle_file)
     logging.info(f"Chunk {chunk_number} processed and saved to {pickle_file}")
 
+    if count_blacklist > 0:
+        logging.info(
+            f"Found {count_blacklist} blacklisted emails ({count_blacklist/len(index_files_chunk)}%) in this chunk."
+        )
 
-def chunks(lst: List[str], n: int) -> List[List[str]]:
+
+def chunks(lst: List[str], n: int) -> Generator[List[str], None, None]:
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i : i + n]  # noqa: E203
 
 
-def main() -> None:
+def main(multiprocessing=True) -> None:
     zip_dir = "simulated_zip_files"  # Directory where zip files are stored
     output_dir = "processed_data"  # Output directory
     month = "2023-10"
@@ -223,11 +224,24 @@ def main() -> None:
     index_files = find_index_files(root_dir)
     logging.info(f"Found {len(index_files)} index files.")
 
-    # Step 3: Process index files in chunks
+    # Step 3: Process index files in chunks using multiprocessing
     chunk_size = 100  # Adjust based on available memory
-    for chunk_number, index_files_chunk in enumerate(chunks(index_files, chunk_size)):
-        process_index_files(index_files_chunk, chunk_number, output_dir, blacklist_emails)
+    chunks_list = list(chunks(index_files, chunk_size))
+
+    if not multiprocessing:
+        logging.info("Processing index files sequentially.")
+        for i, chunk in enumerate(chunks_list):
+            process_index_files(chunk, i, output_dir, blacklist_emails)
+    else:
+        logging.info(f"Processing index files in parallel using {cpu_count()} cores")
+        with Pool(cpu_count()) as pool:
+            pool.starmap(
+                process_index_files, [(chunk, i, output_dir, blacklist_emails) for i, chunk in enumerate(chunks_list)]
+            )
 
 
 if __name__ == "__main__":
+    start_time = time.time()
     main()
+    end_time = time.time()
+    logging.info(f"Script ran for {end_time - start_time:.2f} seconds")
