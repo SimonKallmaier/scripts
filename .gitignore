@@ -2,6 +2,8 @@
 preprocessing/processed_data/*
 preprocessing/simulated_zip_files/*
 
+.vscode/*
+
 .venv
 
 xinvoices/output/*

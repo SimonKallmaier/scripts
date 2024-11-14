@@ -9,8 +9,9 @@ from typing import Dict, Generator, List, Set
 
 import pandas as pd
 import spacy
-from annonymization import common_phrases, regex_substitutions
 from spacy.matcher import Matcher
+
+from .annonymization import common_phrases, regex_substitutions
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
@@ -210,11 +211,7 @@ def main(multiprocessing=True) -> None:
     os.makedirs(unzip_dir, exist_ok=True)
 
     # Define blacklist emails
-    blacklist_emails = {
-        "blacklisted@example.com",
-        "spamuser@example.org",
-        # Add more emails as needed
-    }
+    blacklist_emails = {"blacklisted@example.com", "spamuser@example.org", "max.mustermann@example.com,"}
 
     # Step 1: Unzip files
     unzip_files(zip_dir, unzip_dir, month)
