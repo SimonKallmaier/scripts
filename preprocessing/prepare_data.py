@@ -9,9 +9,8 @@ from typing import Dict, Generator, List, Set
 
 import pandas as pd
 import spacy
+from annonymization import common_phrases, regex_substitutions
 from spacy.matcher import Matcher
-
-from .annonymization import common_phrases, regex_substitutions
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
@@ -56,19 +55,44 @@ def find_index_files(root_dir: str) -> List[str]:
     return index_files
 
 
+def get_batch_id(index_file_path: str) -> str:
+    return index_file_path.replace("\n", "").split("\\")[-2]
+
+
+def get_doc_id(index_file_path: str) -> str:
+    return index_file_path.replace("\n", "").split("\\")[-1].split(".")[0]
+
+
 def parse_index_file(index_file_path: str) -> Dict[str, str]:
     """Parse the index file into a dictionary."""
+
     try:
         with open(index_file_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
         items = [item.strip().strip('"') for item in content.split(",")]
 
+        if len(items) % 2 == 0:
+            logging.warning(f"Even number ({len(items)}) of items in {index_file_path}. Expected odd number.")
+
+        if items[-1] == "":
+            logging.debug(f"Classification index file. Dropping last item: {items[-1]}.")
+
+        else:
+            logging.debug(f"Attributes index file. Getting BatchID and DocID from {items[-1]}.")
+            batch_id = get_batch_id(items[-1])
+            doc_id = get_doc_id(items[-1])
+
         data = {"BATCHKLASSE": items[0], "BATCHCONTENT": items[1]}
 
-        for i in range(2, len(items), 2):
+        for i in range(2, len(items[:-1]), 2):  # Skip last item
             key = items[i]
             value = items[i + 1] if i + 1 < len(items) else ""
             data[key] = value
+
+        # batch id and doc id are only part of classiciation index files.
+        if "{Batch ID}" not in data:
+            data["{Batch ID}"] = batch_id
+            data["{Document ID}"] = doc_id
 
         return data
     except Exception as e:
@@ -81,8 +105,8 @@ def is_expected_format(data: Dict[str, str]) -> bool:
     expected_columns = {
         "BATCHKLASSE",
         "BATCHCONTENT",
-        "{BatchID}",
-        "{DocumentID}",
+        "{Batch ID}",
+        "{Document ID}",
         "docType",
         "{pageCount}",
     }

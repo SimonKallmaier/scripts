@@ -112,14 +112,15 @@ Heute ist der {date}.
                 index_content = (
                     "zipname",
                     "filename",
-                    "{BatchID}",
+                    "{Batch ID}",
                     BatchID,
-                    "{DocumentID}",
+                    "{Document ID}",
                     DocumentID,
                     "docType",
                     "bill",
                     "{pageCount}",
                     str(pages_per_document),
+                    "",
                 )
                 index_content_str = ",".join(['"' + i + '"' for i in index_content])
 
