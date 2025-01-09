@@ -2,7 +2,8 @@ import logging
 import os
 
 from saxoncee import PySaxonProcessor
-from weasyprint import HTML
+
+# from weasyprint import HTML
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -94,27 +95,27 @@ def transform_xml(xml_dir, html_dir, xsl_dir, params=None):
                 _compile_and_transform(xslt_processor, second_xsl, intermediate_path, html_path, params)
 
 
-def convert_html_to_pdf(html_dir, pdf_dir):
-    """
-    Converts HTML files in a specified directory to PDF using WeasyPrint.
+# def convert_html_to_pdf(html_dir, pdf_dir):
+#     """
+#     Converts HTML files in a specified directory to PDF using WeasyPrint.
 
-    :param html_dir: Directory containing input HTML files.
-    :param pdf_dir: Directory where output PDF files will be saved.
-    """
-    # Ensure the output directory exists
-    os.makedirs(pdf_dir, exist_ok=True)
-    logging.info(f"PDF output directory ensured: {pdf_dir}")
+#     :param html_dir: Directory containing input HTML files.
+#     :param pdf_dir: Directory where output PDF files will be saved.
+#     """
+#     # Ensure the output directory exists
+#     os.makedirs(pdf_dir, exist_ok=True)
+#     logging.info(f"PDF output directory ensured: {pdf_dir}")
 
-    # Iterate over each HTML file in the input directory
-    for filename in os.listdir(html_dir):
-        if filename.lower().endswith(".html"):
-            html_path = os.path.join(html_dir, filename)
-            pdf_filename = f"{filename[:-5]}.pdf"  # Replace .html with .pdf
-            pdf_path = os.path.join(pdf_dir, pdf_filename)
+#     # Iterate over each HTML file in the input directory
+#     for filename in os.listdir(html_dir):
+#         if filename.lower().endswith(".html"):
+#             html_path = os.path.join(html_dir, filename)
+#             pdf_filename = f"{filename[:-5]}.pdf"  # Replace .html with .pdf
+#             pdf_path = os.path.join(pdf_dir, pdf_filename)
 
-            logging.info(f"Converting '{html_path}' to PDF at '{pdf_path}'")
-            HTML(html_path).write_pdf(pdf_path)
-            logging.info(f"Converted '{filename}' to '{pdf_filename}'.")
+#             logging.info(f"Converting '{html_path}' to PDF at '{pdf_path}'")
+#             HTML(html_path).write_pdf(pdf_path)
+#             logging.info(f"Converted '{filename}' to '{pdf_filename}'.")
 
 
 if __name__ == "__main__":
